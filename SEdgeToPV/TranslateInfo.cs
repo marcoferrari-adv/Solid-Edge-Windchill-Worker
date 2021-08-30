@@ -1,12 +1,17 @@
-﻿using System;
+﻿using log4net;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Xml;
 
 namespace SEdgeToPV
 {
     internal class TranslateInfo
     {
+
+        private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         public string FileName { get; set; }
         public string FileType { get; set; }
         public string FormatName { get; set; }
@@ -19,7 +24,7 @@ namespace SEdgeToPV
             AdditionalFileFormats = new HashSet<string>();
         }
 
-        public static TranslateInfo createFromInputFile(string InFile)
+        public static TranslateInfo CreateFromInputFile(string InFile)
         {
             TranslateInfo info = new TranslateInfo();
 
@@ -33,6 +38,8 @@ namespace SEdgeToPV
             {
                 throw new FormatException(string.Format("Wrong input file " + InFile + " the file is empty"));
             }
+
+            log.DebugFormat("Readed raw row {0} from in file ", InFileContent);
 
             string[] InFileTokens = InFileContent.Split(' ');
             if (InFileContent.Length < 6)
@@ -82,33 +89,56 @@ namespace SEdgeToPV
 
         private static string DecodeName(string Value)
         {
-            string NewValue = (string)Value.Clone();
+            string NewValue = (string) Value.Clone();
+
             Dictionary<string, string> dictionary = new Dictionary<string, string>
             {
                 { "@_", " " },
-                { "@VL", "ä" },
-                { "@VI", "á" },
-                { "@VQ", "é" },
-                { "@WT", "ü" },
-                { "@WN", "ö" },
-                { "@UT", "Ü" },
-                { "@TL", "Ä" },
-                { "@UN", "Ö" },
-                { "@TI", "Á" },
-                { "@TQ", "É" },
-                { "@UW", "ß" },
-                { "@@", "@" },
-                { "@SH", "°" },
-                { "@RO", "§" },
-                { "@SM", "µ" },
-                { "@UP", "Ø" },
-                { "@WP", "Ø" }
+                { "@HQ", "\t" },
+                { "@HR", "\n" },
+                { "@HU", "\r" },
+                { "@KT", "<" },
+                { "@KV", ">" }
             };
+
             foreach (string key in dictionary.Keys)
             {
                 NewValue = NewValue.Replace(key, dictionary[key]);
             }
 
+            StringBuilder sb = new StringBuilder();
+            NewValue = (NewValue.IndexOf("?~~?") > -1 ? NewValue.Replace("@@", "?~~?") : NewValue.Replace("@@", "|~~|"));
+
+            char[] NewValueCharArray = NewValue.ToCharArray();
+            for (var i = 0; i < NewValueCharArray.Length; i++)
+            {
+                char c = NewValueCharArray[i];
+                if (c == '@')
+                {
+                    char FirstCharAfterAt = NewValueCharArray[i + 1];
+                    if (FirstCharAfterAt >= 72 && FirstCharAfterAt <= 87)
+                    {
+                        int ConvertedFirstCharAfterAt = FirstCharAfterAt - 72;
+                        int ConvertedSecondfCharAfterAt = NewValueCharArray[i + 2] - (int) 'H';
+                        sb.Append((char) (ConvertedFirstCharAfterAt * 16 + ConvertedSecondfCharAfterAt));
+                        i += 2;
+                    }
+                    else
+                    {
+                        string HexSubString = NewValue.Substring(i + 1, i + 5);
+                        char ParsedCharFromHex = (char) int.Parse(HexSubString, System.Globalization.NumberStyles.HexNumber);
+                        sb.Append(ParsedCharFromHex);
+                        i += 4;
+                    }
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+
+            NewValue = sb.ToString();
+            NewValue = (NewValue.IndexOf("?~~?") > -1 ? NewValue.Replace("?~~?", "@") : NewValue.Replace("|~~|", "@"));
             return NewValue;
         }
 

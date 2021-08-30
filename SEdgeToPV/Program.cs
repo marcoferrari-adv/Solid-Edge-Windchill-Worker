@@ -11,7 +11,7 @@ namespace SEdgeToPV
         private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         public static readonly string WVSJOBFileName = "_wvsjob.paj";
 
-        private static int Main(string[] args)
+        public static int Main(string[] args)
         {
 
             if (args.Length < 2)
@@ -32,10 +32,7 @@ namespace SEdgeToPV
             log.DebugFormat("SEdgeToPV invoked with In File: {0} Out File: {1}", InputFile, OutputFile);
             try
             {
-                using (Translator t = new Translator(InputFile, OutputFile))
-                {
-                    t.Execute();
-                }
+               new Translator(InputFile, OutputFile).Execute();
             }
             catch (Exception e)
             {
