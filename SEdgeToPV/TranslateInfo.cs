@@ -83,6 +83,10 @@ namespace SEdgeToPV
             {
                 FileType = "igs";
             }
+            else if (string.Equals(FileType, "parasolid", StringComparison.CurrentCultureIgnoreCase))
+            {
+                FileType = "x_t";
+            }
 
             return FileType;
         }

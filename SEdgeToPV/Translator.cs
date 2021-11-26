@@ -29,6 +29,9 @@ namespace SEdgeToPV
             FormatDictiornary.Add(IntermediateFormat.IGS, "igs");
             FormatDictiornary.Add(IntermediateFormat.DWG, "dwg");
             FormatDictiornary.Add(IntermediateFormat.DXF, "dxf");
+            FormatDictiornary.Add(IntermediateFormat.SAT, "sat");
+            FormatDictiornary.Add(IntermediateFormat.STL, "stl");
+            FormatDictiornary.Add(IntermediateFormat.PARASOLID, "x_t");
         }
 
         public Translator(string _InFile, string _OutFile)
@@ -225,6 +228,11 @@ namespace SEdgeToPV
                         IntermediateFormat = key;
                         break;
                     }
+                }
+
+                if (IntermediateFormat == IntermediateFormat.Unknown) {
+                    log.WarnFormat("Given additional format {0} is not supported", FileFormat);
+                    continue;
                 }
 
                 ExternalExecutableResult ConversionResult = PerformSolidEdgeTranslation(TranslateInfo, IntermediateFormat);
@@ -525,6 +533,9 @@ namespace SEdgeToPV
         IGS = 3,
         PDF = 4,
         DWG = 5,
-        DXF = 6
+        DXF = 6,
+        STL = 7,
+        SAT = 8,
+        PARASOLID = 9
     }
 }
