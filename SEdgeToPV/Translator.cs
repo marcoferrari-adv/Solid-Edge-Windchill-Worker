@@ -5,6 +5,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Xml;
@@ -259,6 +260,26 @@ namespace SEdgeToPV
                 }
                 else
                 {
+
+                    DirectoryInfo OutDirInfo = new DirectoryInfo(TranslateInfo.ConversionOutputDir);
+                    FileSystemInfo[] Files = OutDirInfo.GetFileSystemInfos();
+                    List<FileSystemInfo> OrderedFilesByDate = Files.Where(f => f.Name.EndsWith(FileFormat))
+                                            .OrderBy(f => f.CreationTime)
+                                            .ToList();
+
+                    GeneratedOutputFiles = new string[OrderedFilesByDate.Count];
+                    for (int i = 0; i < OrderedFilesByDate.Count() ; i++)
+                    {
+                        FileSystemInfo GeneratedFileInfo = OrderedFilesByDate.ElementAt(i);
+                        string ExpectedResultFile = string.Format("{0}\\{1}_{2}.{3}", TranslateInfo.ConversionOutputDir, InputFile, (i + 1) ,FileFormat);
+
+                        log.DebugFormat("Renaming additional file from {0} to {1}", GeneratedFileInfo.FullName, ExpectedResultFile);
+
+                        File.Move(GeneratedFileInfo.FullName, ExpectedResultFile);
+
+                        GeneratedOutputFiles[i] = ExpectedResultFile;
+                    }
+
                     string PackedFilePath = PackFilesToZip(TranslateInfo, InputFile, FileFormat, GeneratedOutputFiles);
                     CreatedAdditionalFiles.Add(PackedFilePath);
                 }
