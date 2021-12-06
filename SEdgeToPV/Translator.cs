@@ -212,7 +212,7 @@ namespace SEdgeToPV
             foreach (string FileFormat in TranslateInfo.AdditionalFileFormats)
             {
 
-                string ResultFile = string.Format("{0}\\{1}.{2}", TranslateInfo.ConversionOutputDir, InputFile, FileFormat);
+                string ResultFile = string.Format("{0}\\{1}_{2}_{3}.{4}", TranslateInfo.ConversionOutputDir, FileFormat, InputFile, TranslateInfo.FileType, FileFormat);
                 if (File.Exists(ResultFile))
                 {
                     log.DebugFormat("Additional File already exists {0} reusing", ResultFile);
@@ -236,7 +236,7 @@ namespace SEdgeToPV
                     continue;
                 }
 
-                ExternalExecutableResult ConversionResult = PerformSolidEdgeTranslation(TranslateInfo, IntermediateFormat);
+                ExternalExecutableResult ConversionResult = PerformSolidEdgeTranslation(TranslateInfo, IntermediateFormat, ResultFile);
 
                 log.DebugFormat("Additional File {0} Result", FileFormat);
                 log.DebugFormat("Executable return code: {0}", ConversionResult.ExecutableExitCode);
@@ -271,7 +271,7 @@ namespace SEdgeToPV
                     for (int i = 0; i < OrderedFilesByDate.Count() ; i++)
                     {
                         FileSystemInfo GeneratedFileInfo = OrderedFilesByDate.ElementAt(i);
-                        string ExpectedResultFile = string.Format("{0}\\{1}_{2}.{3}", TranslateInfo.ConversionOutputDir, InputFile, (i + 1) ,FileFormat);
+                        string ExpectedResultFile = string.Format("{0}\\{1}_{2}_{3}_{4}.{5}", TranslateInfo.ConversionOutputDir, FileFormat, InputFile, TranslateInfo.FileType, (i + 1) ,FileFormat);
 
                         log.DebugFormat("Renaming additional file from {0} to {1}", GeneratedFileInfo.FullName, ExpectedResultFile);
 
@@ -298,7 +298,7 @@ namespace SEdgeToPV
             }
         }
 
-        private ExternalExecutableResult PerformSolidEdgeTranslation(TranslateInfo TranslateInfo, IntermediateFormat Format)
+        private ExternalExecutableResult PerformSolidEdgeTranslation(TranslateInfo TranslateInfo, IntermediateFormat Format, string OutFileName = null)
         {
             log.Debug("Starting SolidEdge conversion");
             ExternalExecutableResult result = new ExternalExecutableResult();
@@ -307,7 +307,7 @@ namespace SEdgeToPV
             string OutFileExtension = FormatDictiornary.ContainsKey(Format) ? FormatDictiornary[Format] : throw new Exception("Extension not found for " + Format);
             string InputFile = TranslateInfo.FileName;
             string ConversionInputPath = string.Format("{0}\\{1}.{2}", TranslateInfo.ConversionInputDir, InputFile, TranslateInfo.FileType);
-            string ConversionOutputPath = string.Format("{0}\\{1}.{2}", TranslateInfo.ConversionOutputDir, InputFile, OutFileExtension);
+            string ConversionOutputPath = OutFileName is null ? string.Format("{0}\\{1}.{2}", TranslateInfo.ConversionOutputDir, InputFile, OutFileExtension) : OutFileName;
 
             log.DebugFormat("SolidEdge conversion File Input Path is {0}", ConversionInputPath);
             log.DebugFormat("SolidEdge conversion File Input OutPaht is {0}", ConversionOutputPath);
