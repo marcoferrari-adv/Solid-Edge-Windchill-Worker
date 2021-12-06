@@ -122,9 +122,7 @@ jobs:
         path: Artifact_${{ steps.date.outputs.date }}
     
     - name: Zip Artifacts
-      uses: montudor/action-zip@v1
-      with:
-        args: zip -qq -r SEdgeToPV Package.zip Artifact_${{ steps.date.outputs.date }}
+      run: Compress-Archive -Path "./Artifact_${{ steps.date.outputs.date }}" -DestinationPath "SEdgeToPV Package.zip" -Force
 
     - name: Upload Release Asset
       id: upload-release-asset 
