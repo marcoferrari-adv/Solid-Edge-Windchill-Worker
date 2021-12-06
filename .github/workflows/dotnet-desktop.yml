@@ -116,6 +116,9 @@ jobs:
       uses: actions/download-artifact@v2
       with:
         name: SEdgeToPV Package
+    
+    - name: List files
+      run: ls
 
     - name: Upload Release Asset
       id: upload-release-asset 
