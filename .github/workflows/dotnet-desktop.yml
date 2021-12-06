@@ -96,6 +96,7 @@ jobs:
       with:
         name: SEdgeToPV Package
         path: SEdgeToPV\bin\Release
+        retention-days: 2
         
     - name: Get current date
       id: date
@@ -119,8 +120,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.date.outputs.date }}
-        release_name: Release ${{ steps.date.outputs.date }}
+        tag_name: ${{ steps.date.outputs.date }} ${{ github.run_number }}
+        release_name: Release ${{ steps.date.outputs.date }} ${{ github.run_number }}
         draft: false
         prerelease: false
 
@@ -132,5 +133,5 @@ jobs:
       with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: SEdgeToPV.zip
-          asset_name: SEdgeToPV-${{ steps.date.outputs.date }}.zip
+          asset_name: SEdgeToPV-${{ steps.date.outputs.date }}-${{ github.run_number }}.zip
           asset_content_type: application/zip
