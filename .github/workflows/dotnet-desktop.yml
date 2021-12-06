@@ -112,13 +112,19 @@ jobs:
         draft: false
         prerelease: false
         
+    - name: Make artifact download dir
+      run: mkdir Artifact_${{ steps.date.outputs.date }}
+        
     - name: Download artifact
       uses: actions/download-artifact@v2
       with:
         name: SEdgeToPV Package
+        path: Artifact_${{ steps.date.outputs.date }}
     
-    - name: List files
-      run: ls
+    - name: Zip Artifacts
+      uses: montudor/action-zip@v1
+      with:
+        args: zip -qq -r SEdgeToPV Package.zip Artifact_${{ steps.date.outputs.date }}
 
     - name: Upload Release Asset
       id: upload-release-asset 
@@ -127,6 +133,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./SEdgeToPV Package.zip
+          asset_path: ./Artifact_${{ steps.date.outputs.date }}/SEdgeToPV Package.zip
           asset_name: SEdgeToPV Package.zip
           asset_content_type: application/zip
