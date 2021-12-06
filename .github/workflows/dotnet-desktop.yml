@@ -96,6 +96,10 @@ jobs:
       with:
         name: SEdgeToPV Package
         path: SEdgeToPV\bin\Release
+        
+    - name: Get current date
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
 
     - name: Create Release
       id: create_release
@@ -103,10 +107,15 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        tag_name: ${{ steps.date.outputs.date }}
+        release_name: Release ${{ steps.date.outputs.date }}
         draft: false
         prerelease: false
+        
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: SEdgeToPV Package
 
     - name: Upload Release Asset
       id: upload-release-asset 
