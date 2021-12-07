@@ -321,10 +321,11 @@ namespace SEdgeToPV
                 ConversionProcess.StartInfo.RedirectStandardError = true;
                 ConversionProcess.StartInfo.RedirectStandardOutput = true;
                 ConversionProcess.StartInfo.UseShellExecute = false;
+                ConversionProcess.ErrorDataReceived += new DataReceivedEventHandler((sender, e) => { result.ExecutableStdErr += e.Data + Environment.NewLine; });
                 ConversionProcess.Start();
 
+                ConversionProcess.BeginErrorReadLine();
                 result.ExecutableStdOut = ConversionProcess.StandardOutput.ReadToEnd();
-                result.ExecutableStdErr = ConversionProcess.StandardError.ReadToEnd();
                 ConversionProcess.WaitForExit();
                 result.ExecutableExitCode = ConversionProcess.ExitCode;
                 result.Result = result.ExecutableExitCode == 0;
@@ -359,10 +360,11 @@ namespace SEdgeToPV
                 ConversionProcess.StartInfo.RedirectStandardError = true;
                 ConversionProcess.StartInfo.RedirectStandardOutput = true;
                 ConversionProcess.StartInfo.UseShellExecute = false;
+                ConversionProcess.ErrorDataReceived += new DataReceivedEventHandler((sender, e) => { result.ExecutableStdErr += e.Data + Environment.NewLine; });
                 ConversionProcess.Start();
 
+                ConversionProcess.BeginErrorReadLine();
                 result.ExecutableStdOut = ConversionProcess.StandardOutput.ReadToEnd();
-                result.ExecutableStdErr = ConversionProcess.StandardError.ReadToEnd();
                 ConversionProcess.WaitForExit();
                 result.ExecutableExitCode = ConversionProcess.ExitCode;
 
@@ -402,10 +404,11 @@ namespace SEdgeToPV
                 ConversionProcess.StartInfo.RedirectStandardError = true;
                 ConversionProcess.StartInfo.RedirectStandardOutput = true;
                 ConversionProcess.StartInfo.UseShellExecute = false;
+                ConversionProcess.ErrorDataReceived += new DataReceivedEventHandler((sender, e) => { result.ExecutableStdErr += e.Data + Environment.NewLine; });
                 ConversionProcess.Start();
 
+                ConversionProcess.BeginErrorReadLine();
                 result.ExecutableStdOut = ConversionProcess.StandardOutput.ReadToEnd();
-                result.ExecutableStdErr = ConversionProcess.StandardError.ReadToEnd();
                 ConversionProcess.WaitForExit();
                 result.ExecutableExitCode = ConversionProcess.ExitCode;
                 result.Result = result.ExecutableExitCode == 0;
