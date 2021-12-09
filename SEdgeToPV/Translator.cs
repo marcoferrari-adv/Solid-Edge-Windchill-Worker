@@ -193,7 +193,7 @@ namespace SEdgeToPV
 
                 File.Delete(ASCIIPVSPath);
 
-                File.WriteAllText(OutFile, string.Format("0 {0}", ConversionResult.ResultFile));
+                File.WriteAllText(OutFile, string.Format("0 {0}", PVSResult.ResultFile));
             }
             catch (Exception e)
             {
@@ -211,8 +211,22 @@ namespace SEdgeToPV
             string InputFile = TranslateInfo.FileName;
             foreach (string FileFormat in TranslateInfo.AdditionalFileFormats)
             {
-
                 string ResultFile = string.Format("{0}\\{1}_{2}_{3}.{4}", TranslateInfo.ConversionOutputDir, FileFormat, InputFile, TranslateInfo.FileType, FileFormat);
+
+                string[] FileAlreadyGeneratedForExtension = Directory.GetFiles(TranslateInfo.ConversionOutputDir, string.Format("*.{0}", FileFormat));
+                if(FileAlreadyGeneratedForExtension.Length == 1)
+                {
+                    File.Copy(FileAlreadyGeneratedForExtension[0], ResultFile);
+                    CreatedAdditionalFiles.Add(ResultFile);
+                    continue;
+                }
+                else if(FileAlreadyGeneratedForExtension.Length > 1)
+                {
+                    string PackedMultiFormatFile = RenameAndPackMultiFormat(TranslateInfo, InputFile, FileFormat);
+                    CreatedAdditionalFiles.Add(PackedMultiFormatFile);
+                    continue;
+                }
+               
                 if (File.Exists(ResultFile))
                 {
                     log.DebugFormat("Additional File already exists {0} reusing", ResultFile);
@@ -260,33 +274,39 @@ namespace SEdgeToPV
                 }
                 else
                 {
-
-                    DirectoryInfo OutDirInfo = new DirectoryInfo(TranslateInfo.ConversionOutputDir);
-                    FileSystemInfo[] Files = OutDirInfo.GetFileSystemInfos();
-                    List<FileSystemInfo> OrderedFilesByDate = Files.Where(f => f.Name.EndsWith(FileFormat))
-                                            .OrderBy(f => f.CreationTime)
-                                            .ToList();
-
-                    GeneratedOutputFiles = new string[OrderedFilesByDate.Count];
-                    for (int i = 0; i < OrderedFilesByDate.Count() ; i++)
-                    {
-                        FileSystemInfo GeneratedFileInfo = OrderedFilesByDate.ElementAt(i);
-                        string ExpectedResultFile = string.Format("{0}\\{1}_{2}_{3}_{4}.{5}", TranslateInfo.ConversionOutputDir, FileFormat, InputFile, TranslateInfo.FileType, (i + 1) ,FileFormat);
-
-                        log.DebugFormat("Renaming additional file from {0} to {1}", GeneratedFileInfo.FullName, ExpectedResultFile);
-
-                        File.Move(GeneratedFileInfo.FullName, ExpectedResultFile);
-
-                        GeneratedOutputFiles[i] = ExpectedResultFile;
-                    }
-
-                    string PackedFilePath = PackFilesToZip(TranslateInfo, InputFile, FileFormat, GeneratedOutputFiles);
-                    CreatedAdditionalFiles.Add(PackedFilePath);
+                    string PackedMultiFormatFile = RenameAndPackMultiFormat(TranslateInfo, InputFile, FileFormat);
+                    CreatedAdditionalFiles.Add(PackedMultiFormatFile);
                 }
 
                 CleanUpLogs(TranslateInfo);
             }
             return CreatedAdditionalFiles;
+        }
+
+        private string RenameAndPackMultiFormat(TranslateInfo TranslateInfo, string InputFile, string FileFormat)
+        {
+            string[] GeneratedOutputFiles;
+            DirectoryInfo OutDirInfo = new DirectoryInfo(TranslateInfo.ConversionOutputDir);
+            FileSystemInfo[] Files = OutDirInfo.GetFileSystemInfos();
+            List<FileSystemInfo> OrderedFilesByDate = Files.Where(f => f.Name.EndsWith(FileFormat))
+                                    .OrderBy(f => f.CreationTime)
+                                    .ToList();
+
+            GeneratedOutputFiles = new string[OrderedFilesByDate.Count];
+            for (int i = 0; i < OrderedFilesByDate.Count(); i++)
+            {
+                FileSystemInfo GeneratedFileInfo = OrderedFilesByDate.ElementAt(i);
+                string ExpectedResultFile = string.Format("{0}\\{1}_{2}_{3}_{4}.{5}", TranslateInfo.ConversionOutputDir, FileFormat, InputFile, TranslateInfo.FileType, (i + 1), FileFormat);
+
+                log.DebugFormat("Renaming additional file from {0} to {1}", GeneratedFileInfo.FullName, ExpectedResultFile);
+
+                File.Move(GeneratedFileInfo.FullName, ExpectedResultFile);
+
+                GeneratedOutputFiles[i] = ExpectedResultFile;
+            }
+
+            string PackedFilePath = PackFilesToZip(TranslateInfo, InputFile, FileFormat, GeneratedOutputFiles);
+            return PackedFilePath;
         }
 
         private static void CleanUpLogs(TranslateInfo TranslateInfo)
@@ -527,14 +547,7 @@ namespace SEdgeToPV
             {
                 string CopyDestinationPath = string.Format("{0}\\{1}", WorkingDir, Path.GetFileName(GeneratedOutputFile));
 
-                if (GeneratedOutputFile.ToLower().EndsWith(".pdf") && string.Equals(TranslateInfo.FileType, "dft", StringComparison.CurrentCultureIgnoreCase))
-                {
-                    File.Copy(GeneratedOutputFile, CopyDestinationPath);
-                }
-                else
-                {
-                    File.Move(GeneratedOutputFile, CopyDestinationPath);
-                }
+                File.Move(GeneratedOutputFile, CopyDestinationPath);
             }
 
             string ZipPath = string.Format("{0}\\{1}.zip", TranslateInfo.ConversionOutputDir, Guid.NewGuid());
