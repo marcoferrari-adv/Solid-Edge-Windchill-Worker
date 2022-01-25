@@ -432,8 +432,8 @@ namespace SEdgeToPV
                 ConversionProcess.WaitForExit();
                 result.ExecutableExitCode = ConversionProcess.ExitCode;
                 result.Result = result.ExecutableExitCode == 0;
-                string[] GeneratedOutputFiles = Directory.GetFiles(TranslateInfo.ConversionOutputDir, "*.pvs");
-                if (GeneratedOutputFiles.Length > 0)
+                List<string> GeneratedOutputFiles = Directory.GetFiles(TranslateInfo.ConversionOutputDir, "*.pvs").Where(name => !name.Contains("_ascii.")).ToList();
+                if (GeneratedOutputFiles.Count() > 0)
                 {
                     result.ResultFile = GeneratedOutputFiles[0];
                     result.Result = true;
