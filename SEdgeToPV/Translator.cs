@@ -55,6 +55,14 @@ namespace SEdgeToPV
             bool PrimaryFileConversionResult = false;
             if (string.Equals(TranslateInfo.FileType, "dft", StringComparison.CurrentCultureIgnoreCase))
             {
+                bool IsRefreshDraftView = string.Compare("true", ConfigurationManager.AppSettings["RefreshDraftView"], true) == 0;
+                if(IsRefreshDraftView)
+                {
+                    ExternalExecutableResult RefreshResult = RefreshDraftViews(TranslateInfo);
+                    log.DebugFormat("Refresh result std out: {0}", RefreshResult.ExecutableStdOut);
+                    log.DebugFormat("Refresh result std err: {0}", RefreshResult.ExecutableStdErr);
+                }
+                
                 PrimaryFileConversionResult = Convert2DModel(TranslateInfo);
             }
             else
@@ -81,6 +89,44 @@ namespace SEdgeToPV
                 File.WriteAllText(string.Format("{0}\\loaderoptions.txt", TranslateInfo.ConversionOutputDir), "thumbnailcreate=true\n");
             }
 
+        }
+
+        private ExternalExecutableResult RefreshDraftViews(TranslateInfo TranslateInfo)
+        {
+            ExternalExecutableResult result = new ExternalExecutableResult();
+            try
+            {
+                string AssemblyStartDirecotry = Path.GetDirectoryName(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
+                string RefreshApplicationPath = string.Format("{0}\\bin\\SolidEdgeUpdateViews.exe", AssemblyStartDirecotry);
+                string InputFile = string.Format("{0}\\{1}.{2}", TranslateInfo.ConversionInputDir, TranslateInfo.FileName, TranslateInfo.FileType);
+
+                log.DebugFormat("Refresh app path {0}", RefreshApplicationPath);
+                log.DebugFormat("Refresh file input path {0}", InputFile);
+                using (Process ConversionProcess = new Process())
+                {
+
+                    ConversionProcess.StartInfo.FileName = RefreshApplicationPath;
+                    ConversionProcess.StartInfo.Arguments = InputFile;
+                    ConversionProcess.StartInfo.RedirectStandardError = true;
+                    ConversionProcess.StartInfo.RedirectStandardOutput = true;
+                    ConversionProcess.StartInfo.UseShellExecute = false;
+                    ConversionProcess.ErrorDataReceived += new DataReceivedEventHandler((sender, e) => { result.ExecutableStdErr += e.Data + Environment.NewLine; });
+                    ConversionProcess.Start();
+
+                    ConversionProcess.BeginErrorReadLine();
+                    result.ExecutableStdOut = ConversionProcess.StandardOutput.ReadToEnd();
+                    ConversionProcess.WaitForExit();
+                    result.ExecutableExitCode = ConversionProcess.ExitCode;
+                    result.Result = result.ExecutableExitCode == 0;
+                    result.ResultFile = InputFile;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.ExecutableStdOut = ex.Message;
+                result.ExecutableStdErr = ex.StackTrace;
+            }
+            return result;
         }
 
         private bool Convert3DModel(TranslateInfo TranslateInfo)
