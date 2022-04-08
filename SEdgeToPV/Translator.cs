@@ -18,6 +18,10 @@ namespace SEdgeToPV
 
         private static readonly Dictionary<IntermediateFormat, string> FormatDictiornary = new Dictionary<IntermediateFormat, string>();
 
+        private static readonly int DEFAULT_REFRESH_VIEW_TIMEOUT = 600000;
+        private static readonly int DEFAULT_CONVERT_ASM_TIMEOUT = 3600000;
+        private static readonly int DEFAULT_CONVERT_DFT_TIMEOUT = 3600000;
+        private static readonly int DEFAULT_CONVERT_PART_TIMEOUT = 600000;
 
         private readonly string InFile;
         private readonly string OutFile;
@@ -102,23 +106,66 @@ namespace SEdgeToPV
 
                 log.DebugFormat("Refresh app path {0}", RefreshApplicationPath);
                 log.DebugFormat("Refresh file input path {0}", InputFile);
-                using (Process ConversionProcess = new Process())
+
+                int RefreshTimeout = DEFAULT_REFRESH_VIEW_TIMEOUT;
+                if(!int.TryParse(ConfigurationManager.AppSettings["RefreshViewTimeout"], out RefreshTimeout) || RefreshTimeout < 1)
+                {
+                    RefreshTimeout = DEFAULT_REFRESH_VIEW_TIMEOUT;
+                }
+
+                using (Process RefreshProcess = new Process())
                 {
 
-                    ConversionProcess.StartInfo.FileName = RefreshApplicationPath;
-                    ConversionProcess.StartInfo.Arguments = InputFile;
-                    ConversionProcess.StartInfo.RedirectStandardError = true;
-                    ConversionProcess.StartInfo.RedirectStandardOutput = true;
-                    ConversionProcess.StartInfo.UseShellExecute = false;
-                    ConversionProcess.ErrorDataReceived += new DataReceivedEventHandler((sender, e) => { result.ExecutableStdErr += e.Data + Environment.NewLine; });
-                    ConversionProcess.Start();
+                    RefreshProcess.StartInfo.FileName = RefreshApplicationPath;
+                    RefreshProcess.StartInfo.Arguments = InputFile;
+                    RefreshProcess.StartInfo.RedirectStandardError = true;
+                    RefreshProcess.StartInfo.RedirectStandardOutput = true;
+                    RefreshProcess.StartInfo.UseShellExecute = false;
+                    RefreshProcess.ErrorDataReceived += new DataReceivedEventHandler((sender, e) => { result.ExecutableStdErr += e.Data + Environment.NewLine; });
+                    RefreshProcess.Start();
 
-                    ConversionProcess.BeginErrorReadLine();
-                    result.ExecutableStdOut = ConversionProcess.StandardOutput.ReadToEnd();
-                    ConversionProcess.WaitForExit();
-                    result.ExecutableExitCode = ConversionProcess.ExitCode;
-                    result.Result = result.ExecutableExitCode == 0;
-                    result.ResultFile = InputFile;
+                    RefreshProcess.BeginErrorReadLine();
+                    result.ExecutableStdOut = RefreshProcess.StandardOutput.ReadToEnd();
+                    if (!RefreshProcess.WaitForExit(RefreshTimeout))
+                    {
+                        result.ExecutableStdErr += "Timeout reached, killing process " + RefreshProcess.Id;
+                        result.Result = result.ExecutableExitCode == 9998;
+                        RefreshProcess.Kill();
+                    }
+                    else
+                    {
+                        result.ExecutableExitCode = RefreshProcess.ExitCode;
+                        result.Result = result.ExecutableExitCode == 0;
+                        result.ResultFile = InputFile;
+                    }
+
+                    string SedgePIDFile = Path.Combine(TranslateInfo.ConversionInputDir, "sedge.pid");
+                    if (File.Exists(SedgePIDFile))
+                    {
+                        string SedgePID = File.ReadAllText(SedgePIDFile);
+                        int PID = 0;
+                        if(int.TryParse(SedgePID, out PID) && PID > 0)
+                        {
+                            log.DebugFormat("Found SEDGE Running pid after refresh {0}", PID);
+                            Process[] AllProcesses = Process.GetProcesses();
+
+                            foreach (Process CurrentProcess in AllProcesses)
+                            {
+                                if (CurrentProcess.Id == PID)
+                                {
+                                    try
+                                    {
+                                        log.DebugFormat("Killing pid {0}", PID);
+                                        CurrentProcess.Kill();
+                                    }
+                                    catch { } 
+                                    break;
+                                }
+                            }
+                        }
+
+                        File.Delete(SedgePIDFile);
+                    }
                 }
             }
             catch (Exception ex)
@@ -379,6 +426,9 @@ namespace SEdgeToPV
             log.DebugFormat("SolidEdge conversion File Input OutPaht is {0}", ConversionOutputPath);
             log.DebugFormat("Transaltion command {0} -i=\"{1}\" -o=\"{2}\" -t=\"{3}\"", SETransPath, ConversionInputPath, ConversionOutputPath, OutFileExtension);
 
+
+            int ConversionTimeout = GetConversionTimeout(TranslateInfo);
+
             using (Process ConversionProcess = new Process())
             {
 
@@ -392,10 +442,18 @@ namespace SEdgeToPV
 
                 ConversionProcess.BeginErrorReadLine();
                 result.ExecutableStdOut = ConversionProcess.StandardOutput.ReadToEnd();
-                ConversionProcess.WaitForExit();
-                result.ExecutableExitCode = ConversionProcess.ExitCode;
-                result.Result = result.ExecutableExitCode == 0;
-                result.ResultFile = ConversionOutputPath;
+                if (!ConversionProcess.WaitForExit(ConversionTimeout))
+                {
+                    result.ExecutableStdErr += "Timeout reached, killing process " + ConversionProcess.Id;
+                    result.Result = result.ExecutableExitCode == 9998;
+                    ConversionProcess.Kill();
+                }
+                else
+                {
+                    result.ExecutableExitCode = ConversionProcess.ExitCode;
+                    result.Result = result.ExecutableExitCode == 0;
+                    result.ResultFile = ConversionOutputPath;
+                }
 
                 string ConversionLogFile = string.Format("{0}\\{1}.{2}", TranslateInfo.ConversionInputDir, InputFile, "log");
                 if (File.Exists(ConversionLogFile))
@@ -604,6 +662,35 @@ namespace SEdgeToPV
             Directory.Delete(WorkingDir, true);
 
             return ZipPath;
+        }
+
+
+        private int GetConversionTimeout(TranslateInfo TranslateInfo)
+        {
+            int Timeout = -1;
+            if (string.Equals(TranslateInfo.FileType, "dft", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (!int.TryParse(ConfigurationManager.AppSettings["ConvertDftTimeout"], out Timeout) || Timeout < 1)
+                {
+                    Timeout = DEFAULT_CONVERT_DFT_TIMEOUT;
+                }
+            }
+            else if (string.Equals(TranslateInfo.FileType, "asm", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (!int.TryParse(ConfigurationManager.AppSettings["ConvertAsmTimeout"], out Timeout) || Timeout < 1)
+                {
+                    Timeout = DEFAULT_CONVERT_ASM_TIMEOUT;
+                }
+            }
+            else if (string.Equals(TranslateInfo.FileType, "par", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (!int.TryParse(ConfigurationManager.AppSettings["ConvertPartTimeout"], out Timeout) || Timeout < 1)
+                {
+                    Timeout = DEFAULT_CONVERT_PART_TIMEOUT;
+                }
+            }
+
+            return Timeout;
         }
 
     }
