@@ -56,7 +56,7 @@ namespace SEdgeToPV
                 Directory.CreateDirectory(TranslateInfo.ConversionOutputDir);
             }
 
-            bool PrimaryFileConversionResult = false;
+            bool PrimaryFileConversionResult;
             if (string.Equals(TranslateInfo.FileType, "dft", StringComparison.CurrentCultureIgnoreCase))
             {
                 bool IsRefreshDraftView = string.Compare("true", ConfigurationManager.AppSettings["RefreshDraftView"], true) == 0;
@@ -112,30 +112,28 @@ namespace SEdgeToPV
                 {
                     RefreshTimeout = DEFAULT_REFRESH_VIEW_TIMEOUT;
                 }
-
+                log.DebugFormat("Using timeout: {0}", RefreshTimeout);
                 using (Process RefreshProcess = new Process())
                 {
 
                     RefreshProcess.StartInfo.FileName = RefreshApplicationPath;
                     RefreshProcess.StartInfo.Arguments = InputFile;
-                    RefreshProcess.StartInfo.RedirectStandardError = true;
-                    RefreshProcess.StartInfo.RedirectStandardOutput = true;
+                    RefreshProcess.StartInfo.RedirectStandardError = false;
+                    RefreshProcess.StartInfo.RedirectStandardOutput = false;
                     RefreshProcess.StartInfo.UseShellExecute = false;
-                    RefreshProcess.ErrorDataReceived += new DataReceivedEventHandler((sender, e) => { result.ExecutableStdErr += e.Data + Environment.NewLine; });
                     RefreshProcess.Start();
 
-                    RefreshProcess.BeginErrorReadLine();
-                    result.ExecutableStdOut = RefreshProcess.StandardOutput.ReadToEnd();
                     if (!RefreshProcess.WaitForExit(RefreshTimeout))
                     {
-                        result.ExecutableStdErr += "Timeout reached, killing process " + RefreshProcess.Id;
-                        result.Result = result.ExecutableExitCode == 9998;
+                        result.ExecutableStdErr += $"WARNING, Refresh timeout reached, killing process {RefreshProcess.Id}, dft views should be not updated";
+                        result.Result = true;
+                        result.ExecutableExitCode = 0;
                         RefreshProcess.Kill();
                     }
                     else
                     {
                         result.ExecutableExitCode = RefreshProcess.ExitCode;
-                        result.Result = result.ExecutableExitCode == 0;
+                        result.Result = true;
                         result.ResultFile = InputFile;
                     }
 
@@ -143,25 +141,12 @@ namespace SEdgeToPV
                     if (File.Exists(SedgePIDFile))
                     {
                         string SedgePID = File.ReadAllText(SedgePIDFile);
-                        int PID = 0;
-                        if(int.TryParse(SedgePID, out PID) && PID > 0)
+                        if (uint.TryParse(SedgePID, out uint PID) && PID > 0)
                         {
                             log.DebugFormat("Found SEDGE Running pid after refresh {0}", PID);
                             Process[] AllProcesses = Process.GetProcesses();
 
-                            foreach (Process CurrentProcess in AllProcesses)
-                            {
-                                if (CurrentProcess.Id == PID)
-                                {
-                                    try
-                                    {
-                                        log.DebugFormat("Killing pid {0}", PID);
-                                        CurrentProcess.Kill();
-                                    }
-                                    catch { } 
-                                    break;
-                                }
-                            }
+                            AllProcesses.FirstOrDefault(process => process.Id == PID)?.Kill();
                         }
 
                         File.Delete(SedgePIDFile);
@@ -254,6 +239,9 @@ namespace SEdgeToPV
 
                 if (!ConversionResult.Result || !File.Exists(ConversionResult.ResultFile))
                 {
+                    if (!File.Exists(ConversionResult.ResultFile) && ConversionResult.ExecutableExitCode == 0)
+                        ConversionResult.ExecutableExitCode = 9996;
+
                     string ReturnMessage = string.Format("Intermediate file generation failed, failed to generete pdf. Process returned ExitCoce {0}: {1}{2}", ConversionResult.ExecutableExitCode,
                         ConversionResult.ExecutableStdErr, ConversionResult.JobLog);
                     File.WriteAllText(OutFile, "1 " + ReturnMessage.Replace(System.Environment.NewLine, "<br />"));
@@ -428,7 +416,7 @@ namespace SEdgeToPV
 
 
             int ConversionTimeout = GetConversionTimeout(TranslateInfo);
-
+            log.DebugFormat("Using timeout: {0}", ConversionTimeout);
             using (Process ConversionProcess = new Process())
             {
 
@@ -445,7 +433,8 @@ namespace SEdgeToPV
                 if (!ConversionProcess.WaitForExit(ConversionTimeout))
                 {
                     result.ExecutableStdErr += "Timeout reached, killing process " + ConversionProcess.Id;
-                    result.Result = result.ExecutableExitCode == 9998;
+                    result.Result = false;
+                    result.ExecutableExitCode = 9998;
                     ConversionProcess.Kill();
                 }
                 else
